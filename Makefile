@@ -8,10 +8,13 @@ else
 RM_BIN := rm -rf bin
 endif
 
-.PHONY: build fmt lint vet test clean
+.PHONY: build run fmt lint vet test clean
 
 build:
 	go build -o $(BIN) ./cmd/grimhold
+
+run:
+	go run ./cmd/grimhold
 
 fmt:
 	go fmt ./...
