@@ -34,19 +34,21 @@ var errExit = errors.New("exit")
 
 func commands() map[string]cliCommand {
 	return map[string]cliCommand{
-		"help":     {"help", "Affiche les commandes disponibles", commandHelp},
-		"exit":     {"exit", "Quitte Grimhold", commandExit},
-		"map":      {"map", "Affiche les régions, leur danger et leurs sorties", commandMap},
-		"look":     {"look", "Décrit la région actuelle", commandLook},
-		"travel":   {"travel", "travel <region> : se rend dans une région voisine", commandTravel},
-		"bestiary": {"bestiary", "Liste les monstres d'Open5e (première page)", commandBestiary},
-		"next":     {"next", "Page suivante du bestiaire", commandNext},
-		"prev":     {"prev", "Page précédente du bestiaire", commandPrev},
-		"inspect":  {"inspect", "inspect <monstre> : fiche de stats d'un monstre", commandInspect},
-		"explore":  {"explore", "Explore la région à la recherche d'un monstre", commandExplore},
-		"fight":    {"fight", "Attaque le monstre rencontré", commandFight},
-		"flee":     {"flee", "Tente de fuir le combat", commandFlee},
-		"status":   {"status", "Affiche PV, XP, or et victimes", commandStatus},
+		"help":      {"help", "Affiche les commandes disponibles", commandHelp},
+		"exit":      {"exit", "Quitte Grimhold", commandExit},
+		"map":       {"map", "Affiche les régions, leur danger et leurs sorties", commandMap},
+		"look":      {"look", "Décrit la région actuelle", commandLook},
+		"travel":    {"travel", "travel <region> : se rend dans une région voisine", commandTravel},
+		"bestiary":  {"bestiary", "Liste les monstres d'Open5e (première page)", commandBestiary},
+		"next":      {"next", "Page suivante du bestiaire", commandNext},
+		"prev":      {"prev", "Page précédente du bestiaire", commandPrev},
+		"inspect":   {"inspect", "inspect <monstre> : fiche de stats d'un monstre", commandInspect},
+		"explore":   {"explore", "Explore la région à la recherche d'un monstre", commandExplore},
+		"fight":     {"fight", "Attaque le monstre rencontré", commandFight},
+		"flee":      {"flee", "Tente de fuir le combat", commandFlee},
+		"status":    {"status", "Affiche PV, XP, or et victimes", commandStatus},
+		"character": {"character", "Affiche la fiche du personnage", commandCharacter},
+		"rest":      {"rest", "Soin complet, une fois par visite de région", commandRest},
 	}
 }
 
@@ -151,6 +153,7 @@ func commandTravel(s *session, out io.Writer, args []string) error {
 		return fmt.Errorf("aucun chemin direct de %q vers %q", s.current, args[0])
 	}
 	s.current = args[0]
+	s.player.Rested = false
 	return commandLook(s, out, nil)
 }
 
@@ -256,8 +259,11 @@ func commandFight(s *session, out io.Writer, args []string) error {
 	}
 	printLines(out, game.Round(s.player, s.foe, s.roll))
 	if s.foe.HP <= 0 {
-		xp, gold := game.Victory(s.player, s.foe, s.roll)
+		xp, gold, levels := game.Victory(s.player, s.foe, s.roll)
 		fmt.Fprintf(out, "%s est vaincu ! +%d XP, +%d or.\n", s.foe.Name, xp, gold)
+		if levels > 0 {
+			fmt.Fprintf(out, "Niveau %d atteint ! PV max %d, bonus d'attaque +%d.\n", s.player.Level, s.player.MaxHP, s.player.Attack)
+		}
 		s.foe = nil
 		return nil
 	}
@@ -289,6 +295,7 @@ func checkDefeat(s *session, out io.Writer) {
 	game.Defeat(s.player)
 	s.foe = nil
 	s.current = s.world.Start
+	s.player.Rested = false
 	fmt.Fprintln(out, "Vous tombez... et vous réveillez au carrefour avec 1 PV.")
 }
 
@@ -316,5 +323,29 @@ func commandStatus(s *session, out io.Writer, args []string) error {
 	for _, n := range names {
 		fmt.Fprintf(out, "  %-20s x%d\n", n, p.Kills[n])
 	}
+	return nil
+}
+
+func commandCharacter(s *session, out io.Writer, args []string) error {
+	if err := noArgs(args); err != nil {
+		return err
+	}
+	p := s.player
+	fmt.Fprintf(out, "== Personnage ==\nNiveau %d  XP %d/%d\nPV %d/%d  CA %d  Attaque +%d\nArme : %s\nOr %d\n",
+		p.Level, p.XP, p.NextLevelXP(), p.HP, p.MaxHP, p.AC, p.Attack, p.Weapon, p.Gold)
+	return nil
+}
+
+func commandRest(s *session, out io.Writer, args []string) error {
+	if err := noArgs(args); err != nil {
+		return err
+	}
+	if s.foe != nil {
+		return errors.New("impossible en plein combat : fight ou flee")
+	}
+	if !s.player.Rest() {
+		return errors.New("vous vous êtes déjà reposé ici : voyagez avant de vous reposer à nouveau")
+	}
+	fmt.Fprintf(out, "Vous vous reposez. PV %d/%d.\n", s.player.HP, s.player.MaxHP)
 	return nil
 }

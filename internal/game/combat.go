@@ -11,12 +11,37 @@ import (
 type Roll func(sides int) int
 
 type Player struct {
-	HP, MaxHP, AC, Attack, XP, Gold int
-	Kills                           map[string]int
+	HP, MaxHP, AC, Attack, XP, Gold, Level int
+	Weapon                                 string
+	Rested                                 bool
+	Kills                                  map[string]int
 }
 
 func NewPlayer() *Player {
-	return &Player{HP: 20, MaxHP: 20, AC: 13, Attack: 4, Kills: map[string]int{}}
+	return &Player{HP: 20, MaxHP: 20, AC: 13, Attack: 4, Level: 1, Weapon: "Épée longue (1d8+2)", Kills: map[string]int{}}
+}
+
+func (p *Player) NextLevelXP() int { return p.Level * p.Level * 50 }
+
+func (p *Player) gainXP(xp int) int {
+	p.XP += xp
+	gained := 0
+	for p.XP >= p.NextLevelXP() {
+		p.Level++
+		p.MaxHP += 5
+		p.HP += 5
+		p.Attack++
+		gained++
+	}
+	return gained
+}
+
+func (p *Player) Rest() bool {
+	if p.Rested {
+		return false
+	}
+	p.HP, p.Rested = p.MaxHP, true
+	return true
 }
 
 type Foe struct {
@@ -93,13 +118,13 @@ var xpByCR = map[float64]int{
 	14: 11500, 15: 13000, 16: 15000, 17: 18000, 18: 20000, 19: 22000, 20: 25000,
 }
 
-func Victory(p *Player, f *Foe, roll Roll) (int, int) {
-	xp := xpByCR[f.CR]
-	gold := roll(6) * max(1, int(f.CR*2))
-	p.XP += xp
+func Victory(p *Player, f *Foe, roll Roll) (xp, gold, levels int) {
+	xp = xpByCR[f.CR]
+	gold = roll(6) * max(1, int(f.CR*2))
+	levels = p.gainXP(xp)
 	p.Gold += gold
 	p.Kills[f.Name]++
-	return xp, gold
+	return xp, gold, levels
 }
 
 func Defeat(p *Player) { p.HP = 1 }
