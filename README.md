@@ -44,6 +44,10 @@ exit
 
 You start with a Longsword (1d8). After each victory, `loot` adds a random weapon from Open5e to your bag. `equip <weapon>` wields it: your hits then deal its damage dice +2.
 
+### Ambushes
+
+While you are in a region with monsters and not fighting, a monster may ambush you without you typing anything. Every 20 seconds there is a danger-in-10 chance (10% in a danger 1 region, 30% in danger 3). An ambush starts a fight, just like `explore`. There are no ambushes during a fight or at the crossroads.
+
 ### Saving
 
 - `save` writes the game to `save.json` in the current directory (not allowed mid-fight).

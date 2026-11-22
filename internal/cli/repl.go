@@ -8,6 +8,7 @@ import (
 	"math/rand/v2"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/Sol1de/go-grimhold/internal/client"
 	"github.com/Sol1de/go-grimhold/internal/game"
@@ -66,17 +67,68 @@ func Run(w *world.World, api *client.Client, in io.Reader, out io.Writer, resume
 			fmt.Fprintln(out, "Error:", err)
 		}
 	}
-	sc := bufio.NewScanner(in)
+	done := make(chan struct{})
+	defer close(done)
+	lines := make(chan string)
+	var readErr error
+	go func() {
+		defer close(lines)
+		sc := bufio.NewScanner(in)
+		for sc.Scan() {
+			select {
+			case lines <- sc.Text():
+			case <-done:
+				return
+			}
+		}
+		readErr = sc.Err()
+	}()
+
+	var stopAmbush chan struct{}
+	var ambush <-chan struct{}
+	defer func() {
+		if stopAmbush != nil {
+			close(stopAmbush)
+		}
+	}()
+	prompt := true
 	for {
-		fmt.Fprint(out, "grimhold > ")
-		if !sc.Scan() {
+		r, _ := s.world.Region(s.current)
+		exploring := s.foe == nil && len(r.Foes) > 0
+		if exploring && ambush == nil {
+			stopAmbush = make(chan struct{})
+			ambush = ticks(ambushEvery, stopAmbush)
+		} else if !exploring && ambush != nil {
+			close(stopAmbush)
+			stopAmbush, ambush = nil, nil
+		}
+		if prompt {
+			fmt.Fprint(out, "grimhold > ")
+		}
+		prompt = true
+		var line string
+		var ok bool
+		select {
+		case <-ambush:
+			if s.roll(10) > r.Danger {
+				prompt = false
+				continue
+			}
+			fmt.Fprintln(out, "\nAmbush!")
+			if err := commandExplore(s, out, nil); err != nil {
+				fmt.Fprintln(out, "Error:", err)
+			}
+			continue
+		case line, ok = <-lines:
+		}
+		if !ok {
 			fmt.Fprintln(out)
-			if err := sc.Err(); err != nil {
-				fmt.Fprintln(out, "Read error:", err)
+			if readErr != nil {
+				fmt.Fprintln(out, "Read error:", readErr)
 			}
 			return
 		}
-		words := strings.Fields(strings.ToLower(sc.Text()))
+		words := strings.Fields(strings.ToLower(line))
 		if len(words) == 0 {
 			fmt.Fprintln(out, "Type a command (help for the list).")
 			continue
@@ -92,6 +144,29 @@ func Run(w *world.World, api *client.Client, in io.Reader, out io.Writer, resume
 			fmt.Fprintln(out, "Error:", err)
 		}
 	}
+}
+
+var ambushEvery = 20 * time.Second
+
+func ticks(every time.Duration, stop <-chan struct{}) <-chan struct{} {
+	c := make(chan struct{})
+	go func() {
+		t := time.NewTicker(every)
+		defer t.Stop()
+		for {
+			select {
+			case <-stop:
+				return
+			case <-t.C:
+				select {
+				case c <- struct{}{}:
+				case <-stop:
+					return
+				}
+			}
+		}
+	}()
+	return c
 }
 
 func noArgs(args []string) error {
