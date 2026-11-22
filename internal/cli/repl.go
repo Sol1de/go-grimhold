@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"sort"
 	"strings"
 
 	"github.com/Sol1de/go-grimhold/internal/client"
+	"github.com/Sol1de/go-grimhold/internal/game"
 	"github.com/Sol1de/go-grimhold/internal/world"
 )
 
@@ -23,6 +25,9 @@ type session struct {
 	current string
 	api     *client.Client
 	page    client.Page
+	player  *game.Player
+	foe     *game.Foe
+	roll    game.Roll
 }
 
 var errExit = errors.New("exit")
@@ -38,11 +43,16 @@ func commands() map[string]cliCommand {
 		"next":     {"next", "Page suivante du bestiaire", commandNext},
 		"prev":     {"prev", "Page précédente du bestiaire", commandPrev},
 		"inspect":  {"inspect", "inspect <monstre> : fiche de stats d'un monstre", commandInspect},
+		"explore":  {"explore", "Explore la région à la recherche d'un monstre", commandExplore},
+		"fight":    {"fight", "Attaque le monstre rencontré", commandFight},
+		"flee":     {"flee", "Tente de fuir le combat", commandFlee},
+		"status":   {"status", "Affiche PV, XP, or et victimes", commandStatus},
 	}
 }
 
 func Run(w *world.World, api *client.Client, in io.Reader, out io.Writer) {
-	s := &session{world: w, current: w.Start, api: api}
+	s := &session{world: w, current: w.Start, api: api, player: game.NewPlayer(),
+		roll: func(n int) int { return rand.IntN(n) + 1 }}
 	cmds := commands()
 	sc := bufio.NewScanner(in)
 	for {
@@ -131,6 +141,9 @@ func commandTravel(s *session, out io.Writer, args []string) error {
 	if len(args) != 1 {
 		return errors.New("usage : travel <region>")
 	}
+	if s.foe != nil {
+		return errors.New("impossible en plein combat : fight ou flee")
+	}
 	if _, ok := s.world.Region(args[0]); !ok {
 		return fmt.Errorf("région inconnue : %q", args[0])
 	}
@@ -196,6 +209,112 @@ func commandInspect(s *session, out io.Writer, args []string) error {
 		for _, a := range m.Actions {
 			fmt.Fprintf(out, "  - %s : %s\n", a.Name, a.Desc)
 		}
+	}
+	return nil
+}
+
+func commandExplore(s *session, out io.Writer, args []string) error {
+	if err := noArgs(args); err != nil {
+		return err
+	}
+	if s.foe != nil {
+		return fmt.Errorf("vous combattez déjà %s : fight ou flee", s.foe.Name)
+	}
+	r, _ := s.world.Region(s.current)
+	if len(r.Foes) == 0 {
+		fmt.Fprintln(out, "Rien ne rôde ici.")
+		return nil
+	}
+
+	var worst client.Monster
+	fetched := map[string]bool{}
+	for range max(r.Danger, 1) {
+		slug := r.Foes[s.roll(len(r.Foes))-1]
+		if fetched[slug] {
+			continue
+		}
+		fetched[slug] = true
+		m, err := s.api.Monster(slug)
+		if err != nil {
+			return fmt.Errorf("monstre %q : %w", slug, err)
+		}
+		if worst.Slug == "" || m.CR > worst.CR {
+			worst = m
+		}
+	}
+	s.foe = game.NewFoe(worst)
+	fmt.Fprintf(out, "Un %s surgit ! (PV %d, CA %d, CR %s) fight ou flee ?\n", s.foe.Name, s.foe.HP, s.foe.AC, worst.ChallengeRating)
+	return nil
+}
+
+func commandFight(s *session, out io.Writer, args []string) error {
+	if err := noArgs(args); err != nil {
+		return err
+	}
+	if s.foe == nil {
+		return errors.New("aucun adversaire (tapez explore)")
+	}
+	printLines(out, game.Round(s.player, s.foe, s.roll))
+	if s.foe.HP <= 0 {
+		xp, gold := game.Victory(s.player, s.foe, s.roll)
+		fmt.Fprintf(out, "%s est vaincu ! +%d XP, +%d or.\n", s.foe.Name, xp, gold)
+		s.foe = nil
+		return nil
+	}
+	checkDefeat(s, out)
+	return nil
+}
+
+func commandFlee(s *session, out io.Writer, args []string) error {
+	if err := noArgs(args); err != nil {
+		return err
+	}
+	if s.foe == nil {
+		return errors.New("rien à fuir")
+	}
+	escaped, log := game.Flee(s.player, s.foe, s.roll)
+	printLines(out, log)
+	if escaped {
+		s.foe = nil
+		return nil
+	}
+	checkDefeat(s, out)
+	return nil
+}
+
+func checkDefeat(s *session, out io.Writer) {
+	if s.player.HP > 0 {
+		return
+	}
+	game.Defeat(s.player)
+	s.foe = nil
+	s.current = s.world.Start
+	fmt.Fprintln(out, "Vous tombez... et vous réveillez au carrefour avec 1 PV.")
+}
+
+func printLines(out io.Writer, lines []string) {
+	for _, l := range lines {
+		fmt.Fprintln(out, l)
+	}
+}
+
+func commandStatus(s *session, out io.Writer, args []string) error {
+	if err := noArgs(args); err != nil {
+		return err
+	}
+	p := s.player
+	fmt.Fprintf(out, "PV %d/%d  CA %d  XP %d  Or %d\n", p.HP, p.MaxHP, p.AC, p.XP, p.Gold)
+	if len(p.Kills) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(p.Kills))
+	for n := range p.Kills {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	fmt.Fprintln(out, "Victimes :")
+	for _, n := range names {
+		fmt.Fprintf(out, "  %-20s x%d\n", n, p.Kills[n])
 	}
 	return nil
 }

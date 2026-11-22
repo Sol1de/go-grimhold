@@ -11,8 +11,11 @@ import (
 const BaseURL = "https://api.open5e.com/v1/monsters/"
 
 type Action struct {
-	Name string `json:"name"`
-	Desc string `json:"desc"`
+	Name        string `json:"name"`
+	Desc        string `json:"desc"`
+	AttackBonus int    `json:"attack_bonus"`
+	DamageDice  string `json:"damage_dice"`
+	DamageBonus int    `json:"damage_bonus"`
 }
 
 type Monster struct {
@@ -21,6 +24,7 @@ type Monster struct {
 	HitPoints       int      `json:"hit_points"`
 	ArmorClass      int      `json:"armor_class"`
 	ChallengeRating string   `json:"challenge_rating"`
+	CR              float64  `json:"cr"`
 	Actions         []Action `json:"actions"`
 }
 
