@@ -60,17 +60,17 @@ func (c *Client) Monster(slug string) (Monster, error) {
 func (c *Client) get(u string, v any) error {
 	resp, err := c.HTTP.Get(u)
 	if err != nil {
-		return fmt.Errorf("API Open5e injoignable : %w", err)
+		return fmt.Errorf("Open5e API unreachable: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusNotFound {
-		return fmt.Errorf("introuvable")
+		return fmt.Errorf("not found")
 	}
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("API Open5e : statut %s", resp.Status)
+		return fmt.Errorf("Open5e API: status %s", resp.Status)
 	}
 	if err := json.NewDecoder(resp.Body).Decode(v); err != nil {
-		return fmt.Errorf("réponse Open5e invalide : %w", err)
+		return fmt.Errorf("invalid Open5e response: %w", err)
 	}
 	return nil
 }

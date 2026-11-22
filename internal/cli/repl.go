@@ -34,23 +34,23 @@ var errExit = errors.New("exit")
 
 func commands() map[string]cliCommand {
 	return map[string]cliCommand{
-		"help":      {"help", "Affiche les commandes disponibles", commandHelp},
-		"exit":      {"exit", "Quitte Grimhold", commandExit},
-		"map":       {"map", "Affiche les régions, leur danger et leurs sorties", commandMap},
-		"look":      {"look", "Décrit la région actuelle", commandLook},
-		"travel":    {"travel", "travel <region> : se rend dans une région voisine", commandTravel},
-		"bestiary":  {"bestiary", "Liste les monstres d'Open5e (première page)", commandBestiary},
-		"next":      {"next", "Page suivante du bestiaire", commandNext},
-		"prev":      {"prev", "Page précédente du bestiaire", commandPrev},
-		"inspect":   {"inspect", "inspect <monstre> : fiche de stats d'un monstre", commandInspect},
-		"explore":   {"explore", "Explore la région à la recherche d'un monstre", commandExplore},
-		"fight":     {"fight", "Attaque le monstre rencontré", commandFight},
-		"flee":      {"flee", "Tente de fuir le combat", commandFlee},
-		"status":    {"status", "Affiche PV, XP, or et victimes", commandStatus},
-		"character": {"character", "Affiche la fiche du personnage", commandCharacter},
-		"rest":      {"rest", "Soin complet, une fois par visite de région", commandRest},
-		"save":      {"save", "Sauvegarde la partie dans save.json", commandSave},
-		"load":      {"load", "Recharge la partie depuis save.json", commandLoad},
+		"help":      {"help", "Show available commands", commandHelp},
+		"exit":      {"exit", "Quit Grimhold", commandExit},
+		"map":       {"map", "Show regions, their danger and their exits", commandMap},
+		"look":      {"look", "Describe the current region", commandLook},
+		"travel":    {"travel", "travel <region>: go to a neighboring region", commandTravel},
+		"bestiary":  {"bestiary", "List Open5e monsters (first page)", commandBestiary},
+		"next":      {"next", "Next bestiary page", commandNext},
+		"prev":      {"prev", "Previous bestiary page", commandPrev},
+		"inspect":   {"inspect", "inspect <monster>: show a monster's stat block", commandInspect},
+		"explore":   {"explore", "Search the region for a monster", commandExplore},
+		"fight":     {"fight", "Attack the encountered monster", commandFight},
+		"flee":      {"flee", "Try to flee the fight", commandFlee},
+		"status":    {"status", "Show HP, XP, gold and kills", commandStatus},
+		"character": {"character", "Show the character sheet", commandCharacter},
+		"rest":      {"rest", "Full heal, once per region visit", commandRest},
+		"save":      {"save", "Save the game to save.json", commandSave},
+		"load":      {"load", "Load the game from save.json", commandLoad},
 	}
 }
 
@@ -60,7 +60,7 @@ func Run(w *world.World, api *client.Client, in io.Reader, out io.Writer, resume
 	cmds := commands()
 	if resume {
 		if err := commandLoad(s, out, nil); err != nil {
-			fmt.Fprintln(out, "Erreur :", err)
+			fmt.Fprintln(out, "Error:", err)
 		}
 	}
 	sc := bufio.NewScanner(in)
@@ -69,31 +69,31 @@ func Run(w *world.World, api *client.Client, in io.Reader, out io.Writer, resume
 		if !sc.Scan() {
 			fmt.Fprintln(out)
 			if err := sc.Err(); err != nil {
-				fmt.Fprintln(out, "Erreur de lecture :", err)
+				fmt.Fprintln(out, "Read error:", err)
 			}
 			return
 		}
 		words := strings.Fields(strings.ToLower(sc.Text()))
 		if len(words) == 0 {
-			fmt.Fprintln(out, "Tapez une commande (help pour la liste).")
+			fmt.Fprintln(out, "Type a command (help for the list).")
 			continue
 		}
 		cmd, ok := cmds[words[0]]
 		if !ok {
-			fmt.Fprintf(out, "Commande inconnue : %q. Tapez help.\n", words[0])
+			fmt.Fprintf(out, "Unknown command: %q. Type help.\n", words[0])
 			continue
 		}
 		if err := cmd.callback(s, out, words[1:]); errors.Is(err, errExit) {
 			return
 		} else if err != nil {
-			fmt.Fprintln(out, "Erreur :", err)
+			fmt.Fprintln(out, "Error:", err)
 		}
 	}
 }
 
 func noArgs(args []string) error {
 	if len(args) > 0 {
-		return fmt.Errorf("cette commande ne prend pas d'argument (reçu %d)", len(args))
+		return fmt.Errorf("this command takes no arguments (got %d)", len(args))
 	}
 	return nil
 }
@@ -108,7 +108,7 @@ func commandHelp(_ *session, out io.Writer, args []string) error {
 		names = append(names, n)
 	}
 	sort.Strings(names)
-	fmt.Fprintln(out, "Commandes :")
+	fmt.Fprintln(out, "Commands:")
 	for _, n := range names {
 		fmt.Fprintf(out, "  %-10s %s\n", n, cmds[n].description)
 	}
@@ -119,7 +119,7 @@ func commandExit(_ *session, out io.Writer, args []string) error {
 	if err := noArgs(args); err != nil {
 		return err
 	}
-	fmt.Fprintln(out, "Adieu, aventurier.")
+	fmt.Fprintln(out, "Farewell, adventurer.")
 	return errExit
 }
 
@@ -142,22 +142,22 @@ func commandLook(s *session, out io.Writer, args []string) error {
 		return err
 	}
 	r, _ := s.world.Region(s.current)
-	fmt.Fprintf(out, "== %s == (danger %d)\n%s\nSorties : %s\n", r.Name, r.Danger, r.Description, strings.Join(r.Exits, ", "))
+	fmt.Fprintf(out, "== %s == (danger %d)\n%s\nExits: %s\n", r.Name, r.Danger, r.Description, strings.Join(r.Exits, ", "))
 	return nil
 }
 
 func commandTravel(s *session, out io.Writer, args []string) error {
 	if len(args) != 1 {
-		return errors.New("usage : travel <region>")
+		return errors.New("usage: travel <region>")
 	}
 	if s.foe != nil {
-		return errors.New("impossible en plein combat : fight ou flee")
+		return errors.New("not possible mid-fight: fight or flee")
 	}
 	if _, ok := s.world.Region(args[0]); !ok {
-		return fmt.Errorf("région inconnue : %q", args[0])
+		return fmt.Errorf("unknown region: %q", args[0])
 	}
 	if here, _ := s.world.Region(s.current); !here.HasExit(args[0]) {
-		return fmt.Errorf("aucun chemin direct de %q vers %q", s.current, args[0])
+		return fmt.Errorf("no direct path from %q to %q", s.current, args[0])
 	}
 	s.current = args[0]
 	s.player.Rested = false
@@ -176,7 +176,7 @@ func commandNext(s *session, out io.Writer, args []string) error {
 		return err
 	}
 	if s.page.Next == nil {
-		return errors.New("pas de page suivante (tapez bestiary pour commencer)")
+		return errors.New("no next page (type bestiary to start)")
 	}
 	return showPage(s, out, *s.page.Next)
 }
@@ -186,7 +186,7 @@ func commandPrev(s *session, out io.Writer, args []string) error {
 		return err
 	}
 	if s.page.Previous == nil {
-		return errors.New("pas de page précédente")
+		return errors.New("no previous page")
 	}
 	return showPage(s, out, *s.page.Previous)
 }
@@ -200,24 +200,24 @@ func showPage(s *session, out io.Writer, pageURL string) error {
 	for _, m := range p.Results {
 		fmt.Fprintf(out, "  %-30s CR %s\n", m.Slug, m.ChallengeRating)
 	}
-	fmt.Fprintf(out, "%d monstres au total. next / prev pour naviguer, inspect <monstre> pour les détails.\n", p.Count)
+	fmt.Fprintf(out, "%d monsters in total. next / prev to browse, inspect <monster> for details.\n", p.Count)
 	return nil
 }
 
 func commandInspect(s *session, out io.Writer, args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage : inspect <monstre>")
+		return errors.New("usage: inspect <monster>")
 	}
 	slug := strings.Join(args, "-")
 	m, err := s.api.Monster(slug)
 	if err != nil {
-		return fmt.Errorf("monstre %q : %w", slug, err)
+		return fmt.Errorf("monster %q: %w", slug, err)
 	}
-	fmt.Fprintf(out, "== %s ==\nPV %d  CA %d  CR %s\n", m.Name, m.HitPoints, m.ArmorClass, m.ChallengeRating)
+	fmt.Fprintf(out, "== %s ==\nHP %d  AC %d  CR %s\n", m.Name, m.HitPoints, m.ArmorClass, m.ChallengeRating)
 	if len(m.Actions) > 0 {
-		fmt.Fprintln(out, "Actions :")
+		fmt.Fprintln(out, "Actions:")
 		for _, a := range m.Actions {
-			fmt.Fprintf(out, "  - %s : %s\n", a.Name, a.Desc)
+			fmt.Fprintf(out, "  - %s: %s\n", a.Name, a.Desc)
 		}
 	}
 	return nil
@@ -228,11 +228,11 @@ func commandExplore(s *session, out io.Writer, args []string) error {
 		return err
 	}
 	if s.foe != nil {
-		return fmt.Errorf("vous combattez déjà %s : fight ou flee", s.foe.Name)
+		return fmt.Errorf("you are already fighting %s: fight or flee", s.foe.Name)
 	}
 	r, _ := s.world.Region(s.current)
 	if len(r.Foes) == 0 {
-		fmt.Fprintln(out, "Rien ne rôde ici.")
+		fmt.Fprintln(out, "Nothing lurks here.")
 		return nil
 	}
 
@@ -246,14 +246,14 @@ func commandExplore(s *session, out io.Writer, args []string) error {
 		fetched[slug] = true
 		m, err := s.api.Monster(slug)
 		if err != nil {
-			return fmt.Errorf("monstre %q : %w", slug, err)
+			return fmt.Errorf("monster %q: %w", slug, err)
 		}
 		if worst.Slug == "" || m.CR > worst.CR {
 			worst = m
 		}
 	}
 	s.foe = game.NewFoe(worst)
-	fmt.Fprintf(out, "Un %s surgit ! (PV %d, CA %d, CR %s) fight ou flee ?\n", s.foe.Name, s.foe.HP, s.foe.AC, worst.ChallengeRating)
+	fmt.Fprintf(out, "A %s appears! (HP %d, AC %d, CR %s) fight or flee?\n", s.foe.Name, s.foe.HP, s.foe.AC, worst.ChallengeRating)
 	return nil
 }
 
@@ -262,14 +262,14 @@ func commandFight(s *session, out io.Writer, args []string) error {
 		return err
 	}
 	if s.foe == nil {
-		return errors.New("aucun adversaire (tapez explore)")
+		return errors.New("no opponent (type explore)")
 	}
 	printLines(out, game.Round(s.player, s.foe, s.roll))
 	if s.foe.HP <= 0 {
 		xp, gold, levels := game.Victory(s.player, s.foe, s.roll)
-		fmt.Fprintf(out, "%s est vaincu ! +%d XP, +%d or.\n", s.foe.Name, xp, gold)
+		fmt.Fprintf(out, "%s is defeated! +%d XP, +%d gold.\n", s.foe.Name, xp, gold)
 		if levels > 0 {
-			fmt.Fprintf(out, "Niveau %d atteint ! PV max %d, bonus d'attaque +%d.\n", s.player.Level, s.player.MaxHP, s.player.Attack)
+			fmt.Fprintf(out, "Level %d reached! Max HP %d, attack bonus +%d.\n", s.player.Level, s.player.MaxHP, s.player.Attack)
 		}
 		s.foe = nil
 		return nil
@@ -283,7 +283,7 @@ func commandFlee(s *session, out io.Writer, args []string) error {
 		return err
 	}
 	if s.foe == nil {
-		return errors.New("rien à fuir")
+		return errors.New("nothing to flee from")
 	}
 	escaped, log := game.Flee(s.player, s.foe, s.roll)
 	printLines(out, log)
@@ -303,7 +303,7 @@ func checkDefeat(s *session, out io.Writer) {
 	s.foe = nil
 	s.current = s.world.Start
 	s.player.Rested = false
-	fmt.Fprintln(out, "Vous tombez... et vous réveillez au carrefour avec 1 PV.")
+	fmt.Fprintln(out, "You fall... and wake up at the crossroads with 1 HP.")
 }
 
 func printLines(out io.Writer, lines []string) {
@@ -317,7 +317,7 @@ func commandStatus(s *session, out io.Writer, args []string) error {
 		return err
 	}
 	p := s.player
-	fmt.Fprintf(out, "PV %d/%d  CA %d  XP %d  Or %d\n", p.HP, p.MaxHP, p.AC, p.XP, p.Gold)
+	fmt.Fprintf(out, "HP %d/%d  AC %d  XP %d  Gold %d\n", p.HP, p.MaxHP, p.AC, p.XP, p.Gold)
 	if len(p.Kills) == 0 {
 		return nil
 	}
@@ -326,7 +326,7 @@ func commandStatus(s *session, out io.Writer, args []string) error {
 		names = append(names, n)
 	}
 	sort.Strings(names)
-	fmt.Fprintln(out, "Victimes :")
+	fmt.Fprintln(out, "Kills:")
 	for _, n := range names {
 		fmt.Fprintf(out, "  %-20s x%d\n", n, p.Kills[n])
 	}
@@ -338,7 +338,7 @@ func commandCharacter(s *session, out io.Writer, args []string) error {
 		return err
 	}
 	p := s.player
-	fmt.Fprintf(out, "== Personnage ==\nNiveau %d  XP %d/%d\nPV %d/%d  CA %d  Attaque +%d\nArme : %s\nOr %d\n",
+	fmt.Fprintf(out, "== Character ==\nLevel %d  XP %d/%d\nHP %d/%d  AC %d  Attack +%d\nWeapon: %s\nGold %d\n",
 		p.Level, p.XP, p.NextLevelXP(), p.HP, p.MaxHP, p.AC, p.Attack, p.Weapon, p.Gold)
 	return nil
 }
@@ -348,11 +348,11 @@ func commandRest(s *session, out io.Writer, args []string) error {
 		return err
 	}
 	if s.foe != nil {
-		return errors.New("impossible en plein combat : fight ou flee")
+		return errors.New("not possible mid-fight: fight or flee")
 	}
 	if !s.player.Rest() {
-		return errors.New("vous vous êtes déjà reposé ici : voyagez avant de vous reposer à nouveau")
+		return errors.New("you have already rested here: travel before resting again")
 	}
-	fmt.Fprintf(out, "Vous vous reposez. PV %d/%d.\n", s.player.HP, s.player.MaxHP)
+	fmt.Fprintf(out, "You rest. HP %d/%d.\n", s.player.HP, s.player.MaxHP)
 	return nil
 }

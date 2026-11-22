@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	resume := flag.Bool("continue", false, "reprend la partie sauvegardée dans save.json")
+	resume := flag.Bool("continue", false, "resume the game saved in save.json")
 	flag.Parse()
 	w, err := world.Load()
 	if err != nil {

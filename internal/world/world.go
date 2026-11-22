@@ -30,25 +30,25 @@ func Load() (*World, error) { return parse(worldJSON) }
 func parse(data []byte) (*World, error) {
 	var w World
 	if err := json.Unmarshal(data, &w); err != nil {
-		return nil, fmt.Errorf("world.json invalide : %w", err)
+		return nil, fmt.Errorf("invalid world.json: %w", err)
 	}
 	seen := map[string]bool{}
 	for _, r := range w.Regions {
 		if r.ID == "" {
-			return nil, errors.New("world.json : région sans id")
+			return nil, errors.New("world.json: region without id")
 		}
 		if seen[r.ID] {
-			return nil, fmt.Errorf("world.json : région %q en double", r.ID)
+			return nil, fmt.Errorf("world.json: duplicate region %q", r.ID)
 		}
 		seen[r.ID] = true
 	}
 	if !seen[w.Start] {
-		return nil, fmt.Errorf("world.json : région de départ %q inconnue", w.Start)
+		return nil, fmt.Errorf("world.json: unknown start region %q", w.Start)
 	}
 	for _, r := range w.Regions {
 		for _, e := range r.Exits {
 			if !seen[e] {
-				return nil, fmt.Errorf("world.json : sortie %q de %q inconnue", e, r.ID)
+				return nil, fmt.Errorf("world.json: unknown exit %q from %q", e, r.ID)
 			}
 		}
 	}

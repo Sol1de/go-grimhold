@@ -23,7 +23,7 @@ func commandSave(s *session, out io.Writer, args []string) error {
 		return err
 	}
 	if s.foe != nil {
-		return errors.New("impossible en plein combat : fight ou flee")
+		return errors.New("not possible mid-fight: fight or flee")
 	}
 	b, err := json.MarshalIndent(saveData{s.current, s.player}, "", "  ")
 	if err != nil {
@@ -36,7 +36,7 @@ func commandSave(s *session, out io.Writer, args []string) error {
 	if err := os.Rename(saveFile+".tmp", saveFile); err != nil {
 		return err
 	}
-	fmt.Fprintf(out, "Partie sauvegardée dans %s.\n", saveFile)
+	fmt.Fprintf(out, "Game saved to %s.\n", saveFile)
 	return nil
 }
 
@@ -46,7 +46,7 @@ func commandLoad(s *session, out io.Writer, args []string) error {
 	}
 	b, err := os.ReadFile(saveFile)
 	if errors.Is(err, fs.ErrNotExist) {
-		fmt.Fprintln(out, "Aucune sauvegarde trouvée.")
+		fmt.Fprintln(out, "No save found.")
 		return nil
 	}
 	if err != nil {
@@ -54,15 +54,15 @@ func commandLoad(s *session, out io.Writer, args []string) error {
 	}
 	var d saveData
 	if err := json.Unmarshal(b, &d); err != nil {
-		return fmt.Errorf("sauvegarde illisible : %w", err)
+		return fmt.Errorf("unreadable save: %w", err)
 	}
 	if _, ok := s.world.Region(d.Current); !ok || d.Player == nil {
-		return errors.New("sauvegarde invalide")
+		return errors.New("invalid save")
 	}
 	if d.Player.Kills == nil {
 		d.Player.Kills = map[string]int{}
 	}
 	s.current, s.player, s.foe = d.Current, d.Player, nil
-	fmt.Fprintln(out, "Partie chargée.")
+	fmt.Fprintln(out, "Game loaded.")
 	return commandLook(s, out, nil)
 }

@@ -18,7 +18,7 @@ type Player struct {
 }
 
 func NewPlayer() *Player {
-	return &Player{HP: 20, MaxHP: 20, AC: 13, Attack: 4, Level: 1, Weapon: "Épée longue (1d8+2)", Kills: map[string]int{}}
+	return &Player{HP: 20, MaxHP: 20, AC: 13, Attack: 4, Level: 1, Weapon: "Longsword (1d8+2)", Kills: map[string]int{}}
 }
 
 func (p *Player) NextLevelXP() int { return p.Level * p.Level * 50 }
@@ -85,9 +85,9 @@ func Round(p *Player, f *Foe, roll Roll) []string {
 	if d20 := roll(20); d20+p.Attack >= f.AC {
 		dmg := sum(roll, 1, 8, 2)
 		f.HP -= dmg
-		log = append(log, fmt.Sprintf("Vous touchez %s (%d+%d vs CA %d) : %d dégâts. Il lui reste %d PV.", f.Name, d20, p.Attack, f.AC, dmg, max(f.HP, 0)))
+		log = append(log, fmt.Sprintf("You hit %s (%d+%d vs AC %d): %d damage. It has %d HP left.", f.Name, d20, p.Attack, f.AC, dmg, max(f.HP, 0)))
 	} else {
-		log = append(log, fmt.Sprintf("Vous ratez %s (%d+%d vs CA %d).", f.Name, d20, p.Attack, f.AC))
+		log = append(log, fmt.Sprintf("You miss %s (%d+%d vs AC %d).", f.Name, d20, p.Attack, f.AC))
 	}
 	if f.HP > 0 {
 		log = append(log, foeAttack(p, f, roll))
@@ -97,19 +97,19 @@ func Round(p *Player, f *Foe, roll Roll) []string {
 
 func Flee(p *Player, f *Foe, roll Roll) (bool, []string) {
 	if d20 := roll(20); d20 >= 10 {
-		return true, []string{fmt.Sprintf("Vous prenez la fuite (%d).", d20)}
+		return true, []string{fmt.Sprintf("You flee (%d).", d20)}
 	}
-	return false, []string{"Vous trébuchez en fuyant !", foeAttack(p, f, roll)}
+	return false, []string{"You stumble while fleeing!", foeAttack(p, f, roll)}
 }
 
 func foeAttack(p *Player, f *Foe, roll Roll) string {
 	d20 := roll(20)
 	if d20+f.Attack < p.AC {
-		return fmt.Sprintf("%s vous rate (%d+%d vs CA %d).", f.Name, d20, f.Attack, p.AC)
+		return fmt.Sprintf("%s misses you (%d+%d vs AC %d).", f.Name, d20, f.Attack, p.AC)
 	}
 	dmg := sum(roll, f.DmgN, f.DmgSides, f.DmgBonus)
 	p.HP -= dmg
-	return fmt.Sprintf("%s vous touche : %d dégâts. Il vous reste %d PV.", f.Name, dmg, max(p.HP, 0))
+	return fmt.Sprintf("%s hits you: %d damage. You have %d HP left.", f.Name, dmg, max(p.HP, 0))
 }
 
 var xpByCR = map[float64]int{
