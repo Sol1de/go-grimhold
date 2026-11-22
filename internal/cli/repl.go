@@ -49,13 +49,20 @@ func commands() map[string]cliCommand {
 		"status":    {"status", "Affiche PV, XP, or et victimes", commandStatus},
 		"character": {"character", "Affiche la fiche du personnage", commandCharacter},
 		"rest":      {"rest", "Soin complet, une fois par visite de région", commandRest},
+		"save":      {"save", "Sauvegarde la partie dans save.json", commandSave},
+		"load":      {"load", "Recharge la partie depuis save.json", commandLoad},
 	}
 }
 
-func Run(w *world.World, api *client.Client, in io.Reader, out io.Writer) {
+func Run(w *world.World, api *client.Client, in io.Reader, out io.Writer, resume bool) {
 	s := &session{world: w, current: w.Start, api: api, player: game.NewPlayer(),
 		roll: func(n int) int { return rand.IntN(n) + 1 }}
 	cmds := commands()
+	if resume {
+		if err := commandLoad(s, out, nil); err != nil {
+			fmt.Fprintln(out, "Erreur :", err)
+		}
+	}
 	sc := bufio.NewScanner(in)
 	for {
 		fmt.Fprint(out, "grimhold > ")

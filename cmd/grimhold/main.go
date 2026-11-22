@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
@@ -10,10 +11,12 @@ import (
 )
 
 func main() {
+	resume := flag.Bool("continue", false, "reprend la partie sauvegardée dans save.json")
+	flag.Parse()
 	w, err := world.Load()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	cli.Run(w, client.New(), os.Stdin, os.Stdout)
+	cli.Run(w, client.New(), os.Stdin, os.Stdout, *resume)
 }
