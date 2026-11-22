@@ -1,9 +1,16 @@
 BIN := bin/grimhold
 
+ifeq ($(OS),Windows_NT)
+SHELL := cmd.exe
+BIN := $(BIN).exe
+RM_BIN := if exist bin rmdir /s /q bin
+else
+RM_BIN := rm -rf bin
+endif
+
 .PHONY: build fmt lint vet test clean
 
 build:
-	mkdir -p bin
 	go build -o $(BIN) ./cmd/grimhold
 
 fmt:
@@ -19,4 +26,4 @@ test:
 	go test ./...
 
 clean:
-	rm -rf bin
+	$(RM_BIN)
