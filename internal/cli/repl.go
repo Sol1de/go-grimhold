@@ -210,7 +210,7 @@ func commandMap(s *session, out io.Writer, args []string) error {
 		if r.ID == s.current {
 			marker = "*"
 		}
-		fmt.Fprintf(out, "%s %-18s danger %d  -> %s\n", marker, r.ID, r.Danger, strings.Join(r.Exits, ", "))
+		fmt.Fprintf(out, "%s %-18s %s  -> %s\n", marker, r.ID, danger(r.Danger), strings.Join(r.Exits, ", "))
 	}
 	return nil
 }
@@ -220,7 +220,7 @@ func commandLook(s *session, out io.Writer, args []string) error {
 		return err
 	}
 	r, _ := s.world.Region(s.current)
-	fmt.Fprintf(out, "== %s == (danger %d)\n%s\nExits: %s\n", r.Name, r.Danger, r.Description, strings.Join(r.Exits, ", "))
+	fmt.Fprintf(out, "== %s == (%s)\n%s\nExits: %s\n", r.Name, danger(r.Danger), r.Description, strings.Join(r.Exits, ", "))
 	return nil
 }
 
@@ -432,7 +432,7 @@ func commandStatus(s *session, out io.Writer, args []string) error {
 		return err
 	}
 	p := s.player
-	fmt.Fprintf(out, "HP %d/%d  AC %d  XP %d  Gold %d\n", p.HP, p.MaxHP, p.AC, p.XP, p.Gold)
+	fmt.Fprintf(out, "HP %s  AC %d  XP %d  Gold %d\n", hpBar(p.HP, p.MaxHP), p.AC, p.XP, p.Gold)
 	if len(p.Kills) == 0 {
 		return nil
 	}
@@ -453,8 +453,8 @@ func commandCharacter(s *session, out io.Writer, args []string) error {
 		return err
 	}
 	p := s.player
-	fmt.Fprintf(out, "== Character ==\nLevel %d  XP %d/%d\nHP %d/%d  AC %d  Attack +%d\nWeapon: %s (%s+2)\nGold %d\nBag:\n",
-		p.Level, p.XP, p.NextLevelXP(), p.HP, p.MaxHP, p.AC, p.Attack, p.Weapon, p.Dice, p.Gold)
+	fmt.Fprintf(out, "== Character ==\nLevel %d  XP %d/%d\nHP %s  AC %d  Attack +%d\nWeapon: %s (%s+2)\nGold %d\nBag:\n",
+		p.Level, p.XP, p.NextLevelXP(), hpBar(p.HP, p.MaxHP), p.AC, p.Attack, p.Weapon, p.Dice, p.Gold)
 	for _, w := range p.Bag {
 		fmt.Fprintf(out, "  %-20s %s\n", w.Name, w.Dice)
 	}
@@ -471,6 +471,6 @@ func commandRest(s *session, out io.Writer, args []string) error {
 	if !s.player.Rest() {
 		return errors.New("you have already rested here: travel before resting again")
 	}
-	fmt.Fprintf(out, "You rest. HP %d/%d.\n", s.player.HP, s.player.MaxHP)
+	fmt.Fprintf(out, "You rest. HP %s.\n", hpBar(s.player.HP, s.player.MaxHP))
 	return nil
 }
