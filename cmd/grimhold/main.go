@@ -1,11 +1,18 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/Sol1de/go-grimhold/internal/cli"
+	"github.com/Sol1de/go-grimhold/internal/world"
 )
 
 func main() {
-	cli.Run(os.Stdin, os.Stdout)
+	w, err := world.Load()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	cli.Run(w, os.Stdin, os.Stdout)
 }

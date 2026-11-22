@@ -7,24 +7,35 @@ import (
 	"io"
 	"sort"
 	"strings"
+
+	"github.com/Sol1de/go-grimhold/internal/world"
 )
 
 type cliCommand struct {
 	name        string
 	description string
-	callback    func(out io.Writer, args []string) error
+	callback    func(s *session, out io.Writer, args []string) error
+}
+
+type session struct {
+	world   *world.World
+	current string
 }
 
 var errExit = errors.New("exit")
 
 func commands() map[string]cliCommand {
 	return map[string]cliCommand{
-		"help": {"help", "Affiche les commandes disponibles", commandHelp},
-		"exit": {"exit", "Quitte Grimhold", commandExit},
+		"help":   {"help", "Affiche les commandes disponibles", commandHelp},
+		"exit":   {"exit", "Quitte Grimhold", commandExit},
+		"map":    {"map", "Affiche les régions, leur danger et leurs sorties", commandMap},
+		"look":   {"look", "Décrit la région actuelle", commandLook},
+		"travel": {"travel", "travel <region> : se rend dans une région voisine", commandTravel},
 	}
 }
 
-func Run(in io.Reader, out io.Writer) {
+func Run(w *world.World, in io.Reader, out io.Writer) {
+	s := &session{world: w, current: w.Start}
 	cmds := commands()
 	sc := bufio.NewScanner(in)
 	for {
@@ -46,7 +57,7 @@ func Run(in io.Reader, out io.Writer) {
 			fmt.Fprintf(out, "Commande inconnue : %q. Tapez help.\n", words[0])
 			continue
 		}
-		if err := cmd.callback(out, words[1:]); errors.Is(err, errExit) {
+		if err := cmd.callback(s, out, words[1:]); errors.Is(err, errExit) {
 			return
 		} else if err != nil {
 			fmt.Fprintln(out, "Erreur :", err)
@@ -61,7 +72,7 @@ func noArgs(args []string) error {
 	return nil
 }
 
-func commandHelp(out io.Writer, args []string) error {
+func commandHelp(_ *session, out io.Writer, args []string) error {
 	if err := noArgs(args); err != nil {
 		return err
 	}
@@ -78,10 +89,47 @@ func commandHelp(out io.Writer, args []string) error {
 	return nil
 }
 
-func commandExit(out io.Writer, args []string) error {
+func commandExit(_ *session, out io.Writer, args []string) error {
 	if err := noArgs(args); err != nil {
 		return err
 	}
 	fmt.Fprintln(out, "Adieu, aventurier.")
 	return errExit
+}
+
+func commandMap(s *session, out io.Writer, args []string) error {
+	if err := noArgs(args); err != nil {
+		return err
+	}
+	for _, r := range s.world.Regions {
+		marker := " "
+		if r.ID == s.current {
+			marker = "*"
+		}
+		fmt.Fprintf(out, "%s %-18s danger %d  -> %s\n", marker, r.ID, r.Danger, strings.Join(r.Exits, ", "))
+	}
+	return nil
+}
+
+func commandLook(s *session, out io.Writer, args []string) error {
+	if err := noArgs(args); err != nil {
+		return err
+	}
+	r, _ := s.world.Region(s.current)
+	fmt.Fprintf(out, "== %s == (danger %d)\n%s\nSorties : %s\n", r.Name, r.Danger, r.Description, strings.Join(r.Exits, ", "))
+	return nil
+}
+
+func commandTravel(s *session, out io.Writer, args []string) error {
+	if len(args) != 1 {
+		return errors.New("usage : travel <region>")
+	}
+	if _, ok := s.world.Region(args[0]); !ok {
+		return fmt.Errorf("région inconnue : %q", args[0])
+	}
+	if here, _ := s.world.Region(s.current); !here.HasExit(args[0]) {
+		return fmt.Errorf("aucun chemin direct de %q vers %q", s.current, args[0])
+	}
+	s.current = args[0]
+	return commandLook(s, out, nil)
 }

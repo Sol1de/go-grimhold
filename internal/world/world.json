@@ -1,0 +1,61 @@
+{
+  "start": "crossroads",
+  "regions": [
+    {
+      "id": "crossroads",
+      "name": "The Crossroads",
+      "description": "A leaning signpost, a cold brazier, and roads that all lead somewhere worse.",
+      "danger": 0,
+      "foes": [],
+      "exits": ["ashen-marsh", "whispering-woods", "hollow-mine"]
+    },
+    {
+      "id": "ashen-marsh",
+      "name": "Ashen Marsh",
+      "description": "Fog, iron, and things that breathe under the water.",
+      "danger": 1,
+      "foes": ["goblin", "skeleton", "ghoul"],
+      "exits": ["crossroads", "drowned-chapel"]
+    },
+    {
+      "id": "whispering-woods",
+      "name": "Whispering Woods",
+      "description": "Black pines that murmur your name a heartbeat before something does.",
+      "danger": 1,
+      "foes": ["wolf", "goblin", "bandit"],
+      "exits": ["crossroads", "barrow-hills"]
+    },
+    {
+      "id": "hollow-mine",
+      "name": "Hollow Mine",
+      "description": "Abandoned shafts where the picks still ring at night.",
+      "danger": 2,
+      "foes": ["kobold", "giant-spider", "gnoll"],
+      "exits": ["crossroads", "barrow-hills"]
+    },
+    {
+      "id": "drowned-chapel",
+      "name": "Drowned Chapel",
+      "description": "A sunken nave; the bell tolls underwater for a congregation that never left.",
+      "danger": 3,
+      "foes": ["zombie", "ghast", "specter"],
+      "exits": ["ashen-marsh", "grim-keep"]
+    },
+    {
+      "id": "barrow-hills",
+      "name": "Barrow Hills",
+      "description": "Grassy mounds over old kings who do not rest as well as they should.",
+      "danger": 3,
+      "foes": ["wight", "ogre", "gargoyle"],
+      "exits": ["whispering-woods", "hollow-mine", "grim-keep"]
+    },
+    {
+      "id": "grim-keep",
+      "name": "Grim Keep",
+      "description": "The fortress that named this land. Its gates are open. That is the worst sign.",
+      "danger": 4,
+      "foes": ["wraith", "troll", "vampire-spawn"],
+      "exits": ["drowned-chapel", "barrow-hills"]
+    }
+  ]
+}
