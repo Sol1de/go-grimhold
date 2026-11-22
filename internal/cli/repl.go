@@ -21,13 +21,14 @@ type cliCommand struct {
 }
 
 type session struct {
-	world   *world.World
-	current string
-	api     *client.Client
-	page    client.Page
-	player  *game.Player
-	foe     *game.Foe
-	roll    game.Roll
+	world    *world.World
+	current  string
+	api      *client.Client
+	page     client.Page
+	player   *game.Player
+	foe      *game.Foe
+	roll     game.Roll
+	lootable bool
 }
 
 var errExit = errors.New("exit")
@@ -51,6 +52,8 @@ func commands() map[string]cliCommand {
 		"rest":      {"rest", "Full heal, once per region visit", commandRest},
 		"save":      {"save", "Save the game to save.json", commandSave},
 		"load":      {"load", "Load the game from save.json", commandLoad},
+		"loot":      {"loot", "Search a defeated monster for a weapon", commandLoot},
+		"equip":     {"equip", "equip <weapon>: wield a weapon from your bag", commandEquip},
 	}
 }
 
@@ -253,6 +256,7 @@ func commandExplore(s *session, out io.Writer, args []string) error {
 		}
 	}
 	s.foe = game.NewFoe(worst)
+	s.lootable = false
 	fmt.Fprintf(out, "A %s appears! (HP %d, AC %d, CR %s) fight or flee?\n", s.foe.Name, s.foe.HP, s.foe.AC, worst.ChallengeRating)
 	return nil
 }
@@ -272,9 +276,45 @@ func commandFight(s *session, out io.Writer, args []string) error {
 			fmt.Fprintf(out, "Level %d reached! Max HP %d, attack bonus +%d.\n", s.player.Level, s.player.MaxHP, s.player.Attack)
 		}
 		s.foe = nil
+		s.lootable = true
+		fmt.Fprintln(out, "Type loot to search the remains.")
 		return nil
 	}
 	checkDefeat(s, out)
+	return nil
+}
+
+func commandLoot(s *session, out io.Writer, args []string) error {
+	if err := noArgs(args); err != nil {
+		return err
+	}
+	if !s.lootable {
+		return errors.New("nothing to loot: defeat a monster first")
+	}
+	ws, err := s.api.Weapons()
+	if err != nil {
+		return err
+	}
+	w, ok := game.Loot(s.player, ws, s.roll)
+	s.lootable = false
+	if !ok {
+		fmt.Fprintln(out, "You find nothing of use.")
+		return nil
+	}
+	fmt.Fprintf(out, "You find a %s (%s). equip %s to wield it.\n", w.Name, w.Dice, strings.ToLower(w.Name))
+	return nil
+}
+
+func commandEquip(s *session, out io.Writer, args []string) error {
+	if len(args) == 0 {
+		return errors.New("usage: equip <weapon>")
+	}
+	name := strings.Join(args, " ")
+	w, ok := s.player.Equip(name)
+	if !ok {
+		return fmt.Errorf("no %q in your bag", name)
+	}
+	fmt.Fprintf(out, "You wield the %s (%s+2).\n", w.Name, w.Dice)
 	return nil
 }
 
@@ -338,8 +378,11 @@ func commandCharacter(s *session, out io.Writer, args []string) error {
 		return err
 	}
 	p := s.player
-	fmt.Fprintf(out, "== Character ==\nLevel %d  XP %d/%d\nHP %d/%d  AC %d  Attack +%d\nWeapon: %s\nGold %d\n",
-		p.Level, p.XP, p.NextLevelXP(), p.HP, p.MaxHP, p.AC, p.Attack, p.Weapon, p.Gold)
+	fmt.Fprintf(out, "== Character ==\nLevel %d  XP %d/%d\nHP %d/%d  AC %d  Attack +%d\nWeapon: %s (%s+2)\nGold %d\nBag:\n",
+		p.Level, p.XP, p.NextLevelXP(), p.HP, p.MaxHP, p.AC, p.Attack, p.Weapon, p.Dice, p.Gold)
+	for _, w := range p.Bag {
+		fmt.Fprintf(out, "  %-20s %s\n", w.Name, w.Dice)
+	}
 	return nil
 }
 

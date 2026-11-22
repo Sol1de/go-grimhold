@@ -10,15 +10,50 @@ import (
 
 type Roll func(sides int) int
 
+type Weapon struct {
+	Name string `json:"name"`
+	Dice string `json:"dice"`
+}
+
+var Longsword = Weapon{"Longsword", "1d8"}
+
 type Player struct {
 	HP, MaxHP, AC, Attack, XP, Gold, Level int
 	Weapon                                 string
+	Dice                                   string
+	Bag                                    []Weapon
 	Rested                                 bool
 	Kills                                  map[string]int
 }
 
 func NewPlayer() *Player {
-	return &Player{HP: 20, MaxHP: 20, AC: 13, Attack: 4, Level: 1, Weapon: "Longsword (1d8+2)", Kills: map[string]int{}}
+	return &Player{HP: 20, MaxHP: 20, AC: 13, Attack: 4, Level: 1, Weapon: Longsword.Name, Dice: Longsword.Dice,
+		Bag: []Weapon{Longsword}, Kills: map[string]int{}}
+}
+
+func Loot(p *Player, ws []client.Weapon, roll Roll) (Weapon, bool) {
+	var usable []Weapon
+	for _, w := range ws {
+		if _, _, ok := parseDice(w.DamageDice); ok {
+			usable = append(usable, Weapon{w.Name, w.DamageDice})
+		}
+	}
+	if len(usable) == 0 {
+		return Weapon{}, false
+	}
+	w := usable[roll(len(usable))-1]
+	p.Bag = append(p.Bag, w)
+	return w, true
+}
+
+func (p *Player) Equip(name string) (Weapon, bool) {
+	for _, w := range p.Bag {
+		if strings.EqualFold(w.Name, name) {
+			p.Weapon, p.Dice = w.Name, w.Dice
+			return w, true
+		}
+	}
+	return Weapon{}, false
 }
 
 func (p *Player) NextLevelXP() int { return p.Level * p.Level * 50 }
@@ -83,7 +118,11 @@ func sum(roll Roll, n, sides, bonus int) int {
 func Round(p *Player, f *Foe, roll Roll) []string {
 	var log []string
 	if d20 := roll(20); d20+p.Attack >= f.AC {
-		dmg := sum(roll, 1, 8, 2)
+		n, sides, ok := parseDice(p.Dice)
+		if !ok {
+			n, sides = 1, 8
+		}
+		dmg := sum(roll, n, sides, 2)
 		f.HP -= dmg
 		log = append(log, fmt.Sprintf("You hit %s (%d+%d vs AC %d): %d damage. It has %d HP left.", f.Name, d20, p.Attack, f.AC, dmg, max(f.HP, 0)))
 	} else {

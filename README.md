@@ -1,6 +1,6 @@
 # Grimhold
 
-Grimhold is a text-based dungeon game that runs in the terminal, written in Go with only the standard library. The player types commands in a loop (REPL) to travel between cursed regions described in `world.json`. They explore, stumble on monsters, fight them with dice, then record their victims in a bestiary. Monster data is fetched live from the [Open5e](https://open5e.com) API (D&D 5e SRD, free, no key), with an in-memory cache. A game can be saved to `save.json` and resumed later.
+Grimhold is a text-based dungeon game that runs in the terminal, written in Go with only the standard library. The player types commands in a loop (REPL) to travel between cursed regions described in `world.json`. They explore, stumble on monsters, fight them with dice, loot weapons from them, then record their victims in a bestiary. Monster and weapon data is fetched live from the [Open5e](https://open5e.com) API (D&D 5e SRD, free, no key), with an in-memory cache. A game can be saved to `save.json` and resumed later.
 
 ## Requirements
 
@@ -32,10 +32,17 @@ map                   # regions, danger level and exits
 travel ashen-marsh    # move to a neighboring region
 explore               # search for a monster
 fight                 # attack it (or: flee)
+loot                  # after a victory: find a random weapon
+equip greatsword      # wield a weapon from your bag
+character             # level, weapon and bag
 status                # HP, XP, gold, kills
 rest                  # full heal, once per region visit
 exit
 ```
+
+### Weapons
+
+You start with a Longsword (1d8). After each victory, `loot` adds a random weapon from Open5e to your bag. `equip <weapon>` wields it: your hits then deal its damage dice +2.
 
 ### Saving
 

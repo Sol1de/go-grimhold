@@ -62,7 +62,10 @@ func commandLoad(s *session, out io.Writer, args []string) error {
 	if d.Player.Kills == nil {
 		d.Player.Kills = map[string]int{}
 	}
-	s.current, s.player, s.foe = d.Current, d.Player, nil
+	if d.Player.Dice == "" {
+		d.Player.Weapon, d.Player.Dice, d.Player.Bag = game.Longsword.Name, game.Longsword.Dice, []game.Weapon{game.Longsword}
+	}
+	s.current, s.player, s.foe, s.lootable = d.Current, d.Player, nil, false
 	fmt.Fprintln(out, "Game loaded.")
 	return commandLook(s, out, nil)
 }

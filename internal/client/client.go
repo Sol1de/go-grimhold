@@ -10,6 +10,13 @@ import (
 
 const BaseURL = "https://api.open5e.com/v1/monsters/"
 
+const WeaponsURL = "https://api.open5e.com/v1/weapons/?limit=100"
+
+type Weapon struct {
+	Name       string `json:"name"`
+	DamageDice string `json:"damage_dice"`
+}
+
 type Action struct {
 	Name        string `json:"name"`
 	Desc        string `json:"desc"`
@@ -55,6 +62,13 @@ func (c *Client) Monsters(pageURL string) (Page, error) {
 func (c *Client) Monster(slug string) (Monster, error) {
 	var m Monster
 	return m, c.get(c.BaseURL+url.PathEscape(slug)+"/", &m)
+}
+
+func (c *Client) Weapons() ([]Weapon, error) {
+	var p struct {
+		Results []Weapon `json:"results"`
+	}
+	return p.Results, c.get(WeaponsURL, &p)
 }
 
 func (c *Client) get(u string, v any) error {
