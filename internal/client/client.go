@@ -1,0 +1,72 @@
+package client
+
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/url"
+	"time"
+)
+
+const BaseURL = "https://api.open5e.com/v1/monsters/"
+
+type Action struct {
+	Name string `json:"name"`
+	Desc string `json:"desc"`
+}
+
+type Monster struct {
+	Slug            string   `json:"slug"`
+	Name            string   `json:"name"`
+	HitPoints       int      `json:"hit_points"`
+	ArmorClass      int      `json:"armor_class"`
+	ChallengeRating string   `json:"challenge_rating"`
+	Actions         []Action `json:"actions"`
+}
+
+type Page struct {
+	Count    int       `json:"count"`
+	Next     *string   `json:"next"`
+	Previous *string   `json:"previous"`
+	Results  []Monster `json:"results"`
+}
+
+type Client struct {
+	BaseURL string
+	HTTP    *http.Client
+}
+
+func New() *Client {
+	return &Client{BaseURL: BaseURL, HTTP: &http.Client{Timeout: 10 * time.Second}}
+}
+
+func (c *Client) Monsters(pageURL string) (Page, error) {
+	if pageURL == "" {
+		pageURL = c.BaseURL
+	}
+	var p Page
+	return p, c.get(pageURL, &p)
+}
+
+func (c *Client) Monster(slug string) (Monster, error) {
+	var m Monster
+	return m, c.get(c.BaseURL+url.PathEscape(slug)+"/", &m)
+}
+
+func (c *Client) get(u string, v any) error {
+	resp, err := c.HTTP.Get(u)
+	if err != nil {
+		return fmt.Errorf("API Open5e injoignable : %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		return fmt.Errorf("introuvable")
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("API Open5e : statut %s", resp.Status)
+	}
+	if err := json.NewDecoder(resp.Body).Decode(v); err != nil {
+		return fmt.Errorf("réponse Open5e invalide : %w", err)
+	}
+	return nil
+}

@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Sol1de/go-grimhold/internal/client"
 	"github.com/Sol1de/go-grimhold/internal/world"
 )
 
@@ -20,22 +21,28 @@ type cliCommand struct {
 type session struct {
 	world   *world.World
 	current string
+	api     *client.Client
+	page    client.Page
 }
 
 var errExit = errors.New("exit")
 
 func commands() map[string]cliCommand {
 	return map[string]cliCommand{
-		"help":   {"help", "Affiche les commandes disponibles", commandHelp},
-		"exit":   {"exit", "Quitte Grimhold", commandExit},
-		"map":    {"map", "Affiche les régions, leur danger et leurs sorties", commandMap},
-		"look":   {"look", "Décrit la région actuelle", commandLook},
-		"travel": {"travel", "travel <region> : se rend dans une région voisine", commandTravel},
+		"help":     {"help", "Affiche les commandes disponibles", commandHelp},
+		"exit":     {"exit", "Quitte Grimhold", commandExit},
+		"map":      {"map", "Affiche les régions, leur danger et leurs sorties", commandMap},
+		"look":     {"look", "Décrit la région actuelle", commandLook},
+		"travel":   {"travel", "travel <region> : se rend dans une région voisine", commandTravel},
+		"bestiary": {"bestiary", "Liste les monstres d'Open5e (première page)", commandBestiary},
+		"next":     {"next", "Page suivante du bestiaire", commandNext},
+		"prev":     {"prev", "Page précédente du bestiaire", commandPrev},
+		"inspect":  {"inspect", "inspect <monstre> : fiche de stats d'un monstre", commandInspect},
 	}
 }
 
-func Run(w *world.World, in io.Reader, out io.Writer) {
-	s := &session{world: w, current: w.Start}
+func Run(w *world.World, api *client.Client, in io.Reader, out io.Writer) {
+	s := &session{world: w, current: w.Start, api: api}
 	cmds := commands()
 	sc := bufio.NewScanner(in)
 	for {
@@ -132,4 +139,63 @@ func commandTravel(s *session, out io.Writer, args []string) error {
 	}
 	s.current = args[0]
 	return commandLook(s, out, nil)
+}
+
+func commandBestiary(s *session, out io.Writer, args []string) error {
+	if err := noArgs(args); err != nil {
+		return err
+	}
+	return showPage(s, out, "")
+}
+
+func commandNext(s *session, out io.Writer, args []string) error {
+	if err := noArgs(args); err != nil {
+		return err
+	}
+	if s.page.Next == nil {
+		return errors.New("pas de page suivante (tapez bestiary pour commencer)")
+	}
+	return showPage(s, out, *s.page.Next)
+}
+
+func commandPrev(s *session, out io.Writer, args []string) error {
+	if err := noArgs(args); err != nil {
+		return err
+	}
+	if s.page.Previous == nil {
+		return errors.New("pas de page précédente")
+	}
+	return showPage(s, out, *s.page.Previous)
+}
+
+func showPage(s *session, out io.Writer, pageURL string) error {
+	p, err := s.api.Monsters(pageURL)
+	if err != nil {
+		return err
+	}
+	s.page = p
+	for _, m := range p.Results {
+		fmt.Fprintf(out, "  %-30s CR %s\n", m.Slug, m.ChallengeRating)
+	}
+	fmt.Fprintf(out, "%d monstres au total. next / prev pour naviguer, inspect <monstre> pour les détails.\n", p.Count)
+	return nil
+}
+
+func commandInspect(s *session, out io.Writer, args []string) error {
+	if len(args) == 0 {
+		return errors.New("usage : inspect <monstre>")
+	}
+	slug := strings.Join(args, "-")
+	m, err := s.api.Monster(slug)
+	if err != nil {
+		return fmt.Errorf("monstre %q : %w", slug, err)
+	}
+	fmt.Fprintf(out, "== %s ==\nPV %d  CA %d  CR %s\n", m.Name, m.HitPoints, m.ArmorClass, m.ChallengeRating)
+	if len(m.Actions) > 0 {
+		fmt.Fprintln(out, "Actions :")
+		for _, a := range m.Actions {
+			fmt.Fprintf(out, "  - %s : %s\n", a.Name, a.Desc)
+		}
+	}
+	return nil
 }

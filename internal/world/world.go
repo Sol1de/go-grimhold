@@ -8,6 +8,7 @@ import (
 	"slices"
 )
 
+//go:embed world.json
 var worldJSON []byte
 
 type Region struct {
